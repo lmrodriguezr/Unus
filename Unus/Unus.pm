@@ -74,8 +74,8 @@ sub configure {
 			'alnmethod=s'	=> \$self->{'alnmethod'},
 			'alnload'	=> \$self->{'alnload'},
 		# Tests
-			'recombinationtest'	=> \$self->{'recombinationtest'},
-			'phitestbin'		=> \$self->{'phitestbin'},
+			'recombinationtest=s'	=> \$self->{'recombinationtest'},
+			'phitestbin=s'		=> \$self->{'phitestbin'},
 	) or Pod::Usage::pod2usage(2);
 	Pod::Usage::pod2usage(1) if $help;
 	Pod::Usage::pod2usage(-exitstatus => 0, -verbose => 2) if $man;
@@ -174,6 +174,8 @@ sub align {
 	my ($self,@opts) = @_;
 	-d $self->{'orthdir'} or
 		LOGDIE "I can not find the '".$self->{'orthdir'}."' directory, use the -orthdir parameter or build the groups with -orthcriterion.";
+	-s $self->{'orthdir'}.".manif" or
+		LOGDIE "I can not find the '".$self->{'orthdir'}.".manif' file, use the -orthdir parameter or build the groups with -orthcriterion.";
 	switch ( lc $self->{'alnmethod'} ){
 		case 'muscle' {
 			$self->msg(3,"Selected alignment method: Muscle [Edgar 2004 NAR 32(5):1792-7]");
@@ -199,9 +201,14 @@ sub tests {
 	my ($self,@opts) = @_;
 	-d $self->{'alndir'} or
 		LOGDIE "I can not find the '".$self->{'alndir'}."' directory, use the -alndir parameter or build the alignments with -alnmethod.";
+	-s $self->{'alndir'}.".manif" or
+		LOGDIE "I can not find the '".$self->{'alndir'}.".manif' file, use the -alndir parameter or build the alignments with -alnmethod.";
 	switch ( $self->{'recombinationtest'} ) {
 		case 'phi' {
 			$self->msg(3,"Selected test: PHI-Test for recombination detection [Bruen, Philippe & Bryant 2006 Genetics 172(4):2665-81]");
+		}
+		case '' {
+			$self->msg(3,"Any recombination test selected, ignoring recombination.");
 		}
 		else {
 			Pod::Usage::pod2usage({-exitval=>1, -msg=>"Bad value for -recombinationtest: ".$self->{'recombinationtest'}});

@@ -26,7 +26,7 @@ sub thresholds {
 	my ($self,@opts) = @_;
 	return $self->{'thresholds'} if $#{$self->{'thresholds'}}==$#{$self->{'genomes'}};
 	# Build the histogram:
-	$self->{'unus'}->msg(2,"Building the histogram");
+	$self->{'unus'}->msg(2,"Building the BSR histogram");
 	my $data_file = $self->extract_values(@opts);
 	$self->build_histogram($data_file,@opts);
 	return $self->{'thresholds'};
@@ -36,7 +36,7 @@ sub extract_values {
 	my $hist_file = $self->{'unus'}->{'basename'}.".histogram";
 	return $hist_file if -s $hist_file && $self->{'bsrloadhistogram'};
 	$self->{'unus'}->msg(3,"Extracting values to build the BSR histogram");
-	$self->{'unus'}->open_progress('Building histogram', $self->{'unus'}->{'number_of_genes'}, 1);
+	$self->{'unus'}->open_progress('Building the BSR histogram', $self->{'unus'}->{'number_of_genes'}, 1);
 	GENESFILE:for my $file (@{$self->{'unus'}->{'genes'}}){
 		my $seqIO = Bio::SeqIO->new(-file=>$file,-format=>'Fasta');
 		my $blast = Unus::Blast->new($self->{'unus'});

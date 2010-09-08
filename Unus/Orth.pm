@@ -75,9 +75,10 @@ sub filter_orthref_file {
 sub groups2fasta {
 	my($self,$orthtable_file,@opts) = @_;
 	my $orthdir = $self->{'unus'}->{'basename'}.".orth";
+	my $manif = $orthdir.".manif";
 	unless(-d $orthdir){ mkdir $orthdir or LOGDIE "I can not create the '$orthdir' directory: $!" }
 	my $d=0; $d++ while(<$orthdir/*.fasta>);
-	return $orthdir if $d && $self->{'orthloadseqs'} && ((!$self->{'unus'}->{'orthgroups'}) || $self->{'unus'}->{'orthgroups'}==$d);
+	return $orthdir if -s $manif && $d && $self->{'orthloadseqs'} && ((!$self->{'unus'}->{'orthgroups'}) || $self->{'unus'}->{'orthgroups'}==$d);
 	$self->{'unus'}->msg(3,"Extracting orthologous genes and compiling fasta files");
 	open TABLE, "<", $orthtable_file or LOGDIE "I can't read the '$orthtable_file' file: $!";
 	my $lines=0;
@@ -87,6 +88,7 @@ sub groups2fasta {
 	$self->{'unus'}->open_progress('Extracting genes', $lines, 1);
 	my $fasta = Unus::Fasta->new($self->{'unus'});
 	open TABLE, "<", $orthtable_file or LOGDIE "I can't read the '$orthtable_file' file: $!";
+	if(-s $manif) { unlink $manif or LOGDIE "I can not delete the '$manif' file."; }
 	TABLE:while(my $group=<TABLE>){
 		unless($self->{'unus'}->{'cpus'}==1){$self->{'unus'}->{'pm'}->start and next}
 		chomp $group;
@@ -98,6 +100,9 @@ sub groups2fasta {
 		GENOME:for my $genome (0 .. $#row){
 			$out->write_seq($fasta->get_sequence($self->{'genomes'}->[$genome], $row[$genome]));
 		}
+		open MANIF, ">", $manif or LOGDIE "I can not write in the '$manif' file.";
+		print MANIF $orthdir."/$id.fasta\n";
+		close MANIF;
 		$self->{'unus'}->add_progress;
 		$self->{'unus'}->{'pm'}->finish unless $self->{'unus'}->{'cpus'}==1;
 	}
