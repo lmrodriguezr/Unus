@@ -3,7 +3,6 @@ use strict;
 use Bio::Tools::Run::Alignment::Clustalw;
 use File::Basename;
 use Log::Log4perl qw(:easy);
-use Unus::Align;
 
 sub new {
 	my ($class,$unus) = @_;

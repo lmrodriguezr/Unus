@@ -3,7 +3,6 @@ use strict;
 use Bio::Tools::Run::Alignment::Muscle;
 use File::Basename;
 use Log::Log4perl qw(:easy);
-use Unus::Align;
 
 sub new {
 	my ($class,$unus) = @_;
@@ -20,8 +19,19 @@ sub new {
 }
 sub run {
 	my($self,@opts) = @_;
-	my $align = Unus::Align->new($self->{'unus'});
-	$align->start_run(@opts);
+	my $alndir = $self->{'unus'}->{'basename'}.".aln";
+	unless(-d $alndir){ mkdir $alndir or LOGDIE "I can not create the '$alndir' directory: $!" }
+	my $d=0; $d++ while(<$alndir/*.aln>);
+	return $alndir if $d && $self->{'alnload'} && ((!$self->{'unus'}->{'orthgroups'}) || $self->{'unus'}->{'orthgroups'}==$d);
+	my $orthdir = $self->{'unus'}->{'orthdir'};
+	$orthdir ||= $self->{'unus'}->{'basename'}.".orth";
+	unless($self->{'unus'}->{'orthgroups'}){
+		$self->{'unus'}->{'orthgroups'} = 0;
+		$self->{'unus'}->{'orthgroups'}++ while(my $orthfile = <$orthdir/*.fasta>);
+	}
+	LOGDIE "Unable to find the aligned sequences and the orthologs groups to align." unless $self->{'unus'}->{'orthgroups'};
+	$self->{'unus'}->msg(2,"Aligning orthologs");
+	$self->{'unus'}->open_progress('Aligning orthologs', $self->{'unus'}->{'orthgroups'}, 1);
 	ORTHFILE:while(my $orthfile = <$orthdir/*.fasta>){
 		unless($self->{'unus'}->{'cpus'}==1){$self->{'unus'}->{'pm'}->start and next}
 		my $alnfile = $alndir."/".File::Basename::basename($orthfile);
@@ -29,11 +39,11 @@ sub run {
 		my $muscle_factory = Bio::Tools::Run::Alignment::Muscle->new(-outfile_name=>$alnfile);
 		$muscle_factory->quiet(1);
 		$muscle_factory->align($orthfile);
-		$align->step_run;
+		$self->{'unus'}->add_progress;
 		$self->{'unus'}->{'pm'}->finish unless $self->{'unus'}->{'cpus'}==1;
 	} # ORTHFILE
 	$self->{'unus'}->{'pm'}->wait_all_children unless $self->{'unus'}->{'cpus'}==1;
-	$align->finnish_run(@opts);
+	$self->{'unus'}->close_progress;
 	return $alndir;
 }
 1;
