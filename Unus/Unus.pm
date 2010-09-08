@@ -1,5 +1,5 @@
-
 package Unus::Unus;
+
 use strict;
 use Getopt::Long;
 use File::Basename;
@@ -73,6 +73,9 @@ sub configure {
 		# Alignments
 			'alnmethod=s'	=> \$self->{'alnmethod'},
 			'alnload'	=> \$self->{'alnload'},
+		# Tests
+			'recombinationtest'	=> \$self->{'recombinationtest'},
+			'phitestbin'		=> \$self->{'phitestbin'},
 	) or Pod::Usage::pod2usage(2);
 	Pod::Usage::pod2usage(1) if $help;
 	Pod::Usage::pod2usage(-exitstatus => 0, -verbose => 2) if $man;
@@ -140,14 +143,14 @@ sub calculate_orthologs {
 	switch ( lc $self->{'orthcriterion'} ){
 		case 'bsr' {
 			$self->msg(2,"Selected criterion: Bit Score Ratio");
-			require Unus::Bsr;
-			my $bsr = Unus::Bsr->new($self);
+			require Unus::Orth::Bsr;
+			my $bsr = Unus::Orth::Bsr->new($self);
 			$groups = $bsr->run;
 		}
 		case 'rbh' {
 			$self->msg(2,"Selected criterion: Reciprocal Best Hit");
-			require Unus::Rbh;
-			my $rbh = Unus::Rbh->new($self);
+			require Unus::Orth::Rbh;
+			my $rbh = Unus::Orth::Rbh->new($self);
 			$groups = $rbh->run;
 		}
 		case 'orthomcl' {
@@ -174,14 +177,14 @@ sub align {
 	switch ( lc $self->{'alnmethod'} ){
 		case 'muscle' {
 			$self->msg(3,"Selected alignment method: Muscle [Edgar 2004 NAR 32(5):1792-7]");
-			require Unus::Muscle;
-			my $muscle = Unus::Muscle->new($self);
+			require Unus::Align::Muscle;
+			my $muscle = Unus::Align::Muscle->new($self);
 			$self->{'alndir'} = $muscle->run(@opts);
 		}
 		case 'clustalw' {
 			$self->msg(3,"Selected alignment method: ClustalW [Larkin et al 2007 Bioinformatics 23(21):2947-8]");
-			require Unus::ClustalW;
-			my $clustalw = Unus::ClustalW->new($self);
+			require Unus::Align::ClustalW;
+			my $clustalw = Unus::Align::ClustalW->new($self);
 			$self->{'alndir'} = $clustalw->run(@opts);
 		}
 		case 'noaln' {
@@ -196,8 +199,13 @@ sub tests {
 	my ($self,@opts) = @_;
 	-d $self->{'alndir'} or
 		LOGDIE "I can not find the '".$self->{'alndir'}."' directory, use the -alndir parameter or build the alignments with -alnmethod.";
-	if ( $self->{'phitest'} ) {
-		$self->msg(3,"Selected test: PHI-Test for recombination detection [Bruen, Philippe & Bryant 2006 Genetics 172(4):2665-81]");
+	switch ( $self->{'recombinationtest'} ) {
+		case 'phi' {
+			$self->msg(3,"Selected test: PHI-Test for recombination detection [Bruen, Philippe & Bryant 2006 Genetics 172(4):2665-81]");
+		}
+		else {
+			Pod::Usage::pod2usage({-exitval=>1, -msg=>"Bad value for -recombinationtest: ".$self->{'recombinationtest'}});
+		}
 	}
 }
 ## S Y S T E M - W I D E   F U N C T I O N S ##

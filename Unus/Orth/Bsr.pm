@@ -1,7 +1,6 @@
-package Unus::Rbh;
+package Unus::Orth::Bsr;
 use strict;
 use Unus::Blast;
-use Unus::Fasta;
 use Log::Log4perl qw(:easy);
 
 sub new {
@@ -9,18 +8,16 @@ sub new {
 	my $self = {
 		# Defaults
 		'unus'=>$unus,
-		'rbhidentity'=>0.7,
-		'rbhlength'=>0.7,
-		'rbhscorethreshold'=>0.95,
-		'rbhxdropoff'=>150,
-		'rbhnucpenalty'=>-1,
-		'rbhfilter'=>'F',
+		'bsrstatic'=>0,
+		'bsrtolerance'=>0,
+		'bsrfixed'=>'no',
 		'orthloadpairs'=>1,
 	};
 	bless $self, $class;
 	# Overwrite defaults where defined
 	for ( keys %{$self} ) { $self->{$_}=$unus->{$_} if defined $unus->{$_} }
 	$self->{'genomes'} = $unus->genomes;
+	$self->{'thresholds'} = [];
 	return $self;
 }
 sub run {
@@ -35,11 +32,24 @@ sub build_orthref_file {
 	my ($self,@opts) = @_;
 	my $orthref_file = $self->{'unus'}->{'basename'}.".orthref";
 	return $orthref_file if -s $orthref_file && $self->{'orthloadpairs'};
+	# Select the algorithm
+	if($self->{'bsrfixed'} ne 'no'){
+		$self->{'thresholds'} = $self->{'unus'}->per_genome($self->{'bsrfixed'}+0);
+		$self->{'unus'}->msg(3,"BSR static threshold fixed at ".($self->{'bsrfixed'}+0));
+	}else{
+		require Unus::Orth::BsrAuto;
+		my $bsrAuto = Unus::Orth::BsrAuto->new($self->{'unus'});
+		$self->{'thresholds'} = $bsrAuto->thresholds;
+		if($self->{'bsrstatic'}){
+			@{ $self->{'thresholds'} } = $self->{'unus'}->per_genome($bsrAuto->{'mean_thr'});
+		}
+	}
+	LOGDIE "Unexpected error setting the thresholds" unless $self->{'thresholds'};
 	$self->{'unus'}->msg(3,"Building the orthpairs file");
+	$self->{'unus'}->msg(4,"BSR thresholds: ".join(", ",@{$self->{'thresholds'}}));
 	# Run
-	if(-s $orthref_file){ unlink $orthref_file or LOGDIE "I can't delete the '$orthref_file' file" }
+	if(-s $orthref_file){ unlink $orthref_file or LOGDIE "I can't delete the '$orthref_file' file: $!" }
 	$self->{'unus'}->open_progress('Building orthology groups', $self->{'unus'}->{'number_of_genes'}, 1);
-	my $tmp_fasta = Unus::Fasta->new($self->{'unus'});
 	GENESFILE:for my $file (@{$self->{'unus'}->{'genes'}}){
 		my $seqIO = Bio::SeqIO->new(-file=>$file,-format=>'Fasta');
 		my $blast = Unus::Blast->new($self->{'unus'});
@@ -57,21 +67,17 @@ sub build_orthref_file {
 			my $refScore = 0;
 			GENOME:for my $genome (0 .. $#{$self->{'genomes'}}){
 				$blast->run($seq,$self->{'genomes'}->[$genome]);
-				if(my $hit = $blast->best_hit(-identity=>$self->{'rbhidentity'}, -length=>$seq->length*$self->{'rbhlength'})){
-					my $back_blast = Unus::Blast->new($self->{'unus'});
-					$back_blast->run(
-							$tmp_fasta->get_sequence($self->{'genomes'}->[$genome],$hit->accession), $self->{'genomes'}->[0],
-							-blastresults=>10,-tag=>'backwards_');
-					my @back_hits=$back_blast->hits(
-							-identity=>$self->{'rbhidentity'}, -length=>$self->{'rbhlength'},
-							-bits=>$self->{'rbhscorethreshold'}*$hit->hsp->bits);
-					if(@back_hits && $#back_hits==0){
-						if($back_hits[0]->accession eq $seq->display_id){
+				my @hits = $blast->hits();
+				if(@hits){
+					$refScore = $hits[0]->hsp->bits unless $refScore;
+					HITS:for my $hit (@hits){
+						my $val = $hit->bits/$refScore;
+						if($val >= $self->{'thresholds'}->[$genome]){
 							open ORTH, ">>", $orthref_file or LOGDIE "I can't write on the '$orthref_file' file: $!";
 							print ORTH $seq->display_id."\t$genome\t".$hit->accession."\n";
 							close ORTH;
 						}
-					}
+					} # HSP
 				}
 			} # GENOME
 			$self->{'unus'}->{'pm'}->finish unless $self->{'unus'}->{'cpus'}==1;
@@ -81,5 +87,14 @@ sub build_orthref_file {
 	$self->{'unus'}->{'pm'}->wait_all_children unless $self->{'unus'}->{'cpus'}==1;
 	$self->{'unus'}->close_progress;
 	return $orthref_file;
+}
+sub mean_threshold {
+	my $self = shift;
+	return $self->{'mean_threshold'} if defined $self->{'mean_threshold'};
+	return 0 unless $#{$self->{'thresholds'}}>=0;
+	my $mean = 0;
+	$mean+= ${$self->{'thresholds'}}[$_] for ( 0 .. $#{$self->{'thresholds'}} );
+	$self->{'mean_threshold'} = $mean/($#{$self->{'thresholds'}}+1);
+	return $self->mean_threshold;
 }
 1;

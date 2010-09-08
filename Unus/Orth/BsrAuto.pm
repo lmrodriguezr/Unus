@@ -1,4 +1,4 @@
-package Unus::BsrAuto;
+package Unus::Orth::BsrAuto;
 use strict;
 use Bio::SeqIO;
 use Unus::Blast;
