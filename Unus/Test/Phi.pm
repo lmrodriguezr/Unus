@@ -12,6 +12,7 @@ sub new {
 		'unus'=>$unus,
 		'phitestbin'=>'Phi',
 		'phitestsignificance'=>0.05,
+		'recombinationtestload'=>0,
 	};
 	bless $self, $class;
 	# Overwrite defaults where defined
@@ -24,7 +25,14 @@ sub run {
 	my $alndir = $self->{'unus'}->{'alndir'};
 	$alndir ||= $self->{'unus'}->{'basename'}.".aln";
 	-d $alndir and -s "$alndir.manif" or LOGDIE "I can not find the alignments";
-	unless(-s "$alndir.manif.prephi") {
+	if(-s "$alndir.manif.prephi") {
+		if($self->{'recombinationtestload'} && -s "$alndir.manif.postphi"){
+			copy "$alndir.manif.postphi", "$alndir.manif" or LOGDIE "I can not copy '$alndir.manif.postphi' into '$alndir.manif': $!";
+			return "$alndir.manif" 
+		}else{
+			copy "$alndir.manif.prephi", "$alndir.manif" or LOGDIE "I can not copy '$alndir.manif.prephi' into '$alndir.manif': $!";
+		}
+	}else{
 		copy "$alndir.manif", "$alndir.manif.prephi" or LOGDIE "I can not copy '$alndir.manif' into '$alndir.manif.prephi': $!";
 	}
 	return $self->test_recombination("$alndir.manif.prephi",$alndir,@opts);
@@ -77,7 +85,8 @@ sub test_recombination {
 	$self->{'unus'}->{'pm'}->wait_all_children unless $self->{'unus'}->{'cpus'}==1;
 	$self->{'unus'}->close_progress;
 	close OLDMANIF;
+	copy $newmanif, "$alndir.manif.postphi" or LOGDIE "I can not copy '$newmanif' into '$alndir.manif.postphi': $!";
 	
-	return;
+	return $newmanif;
 }
 1;

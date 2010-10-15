@@ -38,7 +38,7 @@ sub run {
 	LOGDIE "Unable to find the aligned sequences and the ortholog groups to align." unless $self->{'unus'}->{'orthgroups'};
 	$self->{'unus'}->msg(2,"Aligning orthologs");
 	$self->{'unus'}->open_progress('Aligning orthologs', $self->{'unus'}->{'orthgroups'}, 1);
-	if(-s $manif) { unlink $manif or LOGDIE "I can not delete the '$manif' file.\n"; }
+	if(-s $manif) { unlink $manif or LOGDIE "I can not delete the '$manif' file: $!"; }
 	open ORTHMANIF, "<", $orthmanif or LOGDIE "I can not read the '$orthmanif' file.";
 	ORTHFILE:while(my $orthfile = <ORTHMANIF>){
 		unless($self->{'unus'}->{'cpus'}==1){$self->{'unus'}->{'pm'}->start and next}

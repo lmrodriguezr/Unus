@@ -42,7 +42,7 @@ sub build_orthref_file {
 	if(!$self->{'rbhnoextratables'} && -s $preextratable){ unlink $preextratable or LOGDIE "I can't delete the '$preextratable' file: $!" }
 	if(-s $orthref_file){ unlink $orthref_file or LOGDIE "I can't delete the '$orthref_file' file: $!" }
 	$self->{'unus'}->open_progress('Building orthology groups', $self->{'unus'}->{'number_of_genes'}, 1);
-	my $tmp_fasta = Unus::Fasta->new($self->{'unus'});
+	my $tmp_fasta = Unus::Fasta->new(\$self->{'unus'});
 	GENESFILE:for my $file (@{$self->{'unus'}->{'genes'}}){
 		my $seqIO = Bio::SeqIO->new(-file=>$file,-format=>'Fasta');
 		my $blast = Unus::Blast->new($self->{'unus'});

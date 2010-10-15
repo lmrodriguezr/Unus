@@ -86,7 +86,7 @@ sub groups2fasta {
 	close TABLE;
 	$self->{'unus'}->msg(4,"$lines groups found");
 	$self->{'unus'}->open_progress('Extracting genes', $lines, 1);
-	my $fasta = Unus::Fasta->new($self->{'unus'});
+	my $fasta = Unus::Fasta->new(\$self->{'unus'});
 	open TABLE, "<", $orthtable_file or LOGDIE "I can't read the '$orthtable_file' file: $!";
 	if(-s $manif) { unlink $manif or LOGDIE "I can not delete the '$manif' file."; }
 	TABLE:while(my $group=<TABLE>){

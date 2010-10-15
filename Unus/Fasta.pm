@@ -8,12 +8,13 @@ sub new {
 	my ($class,$unus) = @_;
 	my $self = {
 		# Defaults
-		'unus'=>$unus,
+		'unus'=>$$unus,
+		'genomesload'=>0,
 	};
 	bless $self, $class;
 	# Overwrite defaults where defined
-	for ( keys %{$self} ) { $self->{$_}=$unus->{$_} if defined $unus->{$_} }
-	$self->{'genomes'} = $unus->genomes;
+	for ( keys %{$self} ) { $self->{$_}=$self->{'unus'}->{$_} if defined $self->{'unus'}->{$_} }
+	$self->{'genomes'} = $self->{'unus'}->genomes;
 	return $self;
 }
 sub fasta_clean {
@@ -22,8 +23,10 @@ sub fasta_clean {
 	my @out=();
 	# First code the names
 	my (%coded_taxa,%ct);
-	for my $ori (@in){
-		my $cod = $self->taxon($ori);
+	for my $kori (0 .. $#in){
+		my $cod;
+		($cod, $in[$kori]) = $self->taxon($in[$kori]);
+		my $ori = $in[$kori];
 		if($ct{$cod}){
 			my $old_cod = $cod;
 			my $ori1 = $ct{$cod};
@@ -42,38 +45,44 @@ sub fasta_clean {
 	$self->{'coded_taxa'} = \%coded_taxa;
 	# And then clean the sequences
 	for my $genome (@in){
+		my $taxon = $coded_taxa{$genome};
+		push @out, $self->{'unus'}->{'basename'}.".in/$taxon";
+		next if -s $genome && $self->{'unus'}->{'genomesload'};
 		$self->{'unus'}->msg(3,"Cleaning the genome '$genome' (".$coded_taxa{$genome}.")");
 		my $i = 0;
 		my $in = Bio::SeqIO->new(-file=>$genome, -format=>'Fasta');
-		my $taxon = $coded_taxa{$genome};
 		my $out = Bio::SeqIO->new(-file=>">".$self->{'unus'}->{'basename'}.".in/$taxon", -format=>'Fasta');
 		while(my $seq = $in->next_seq){
 			$seq->display_id("$taxon:".(++$i));
 			$seq->desc('');
 			$out->write_seq($seq);
 		}
-		push @out, $self->{'unus'}->{'basename'}.".in/$taxon";
 	}
+	$self->{'unus'}->{'outgroup'}=$coded_taxa{$self->{'unus'}->{'outgroupin'}} if($self->{'unus'}->{'outgroupin'});
 	return wantarray ? @out : \@out;
 }
 sub taxon {
 	my ($self,$dirty,$len,@opts) = @_;
+	if($dirty =~ m/(.*):outgroup$/i){
+		$dirty = $1;
+		$self->{'unus'}->{'outgroupin'} = $dirty;
+	}
 	$len = 4 unless defined $len;
 	my $out = File::Basename::basename($dirty);
-	return $out if length($out)<=$len;
+	return ($out,$dirty) if length($out)<=$len;
 	$out=~s/\.[^\.]+$//;
-	return $out if length($out)<=$len;
+	return ($out,$dirty) if length($out)<=$len;
 	$out=~s/[^A-Za-z0-9]//g;
-	return $out if length($out)<=$len;
+	return ($out,$dirty) if length($out)<=$len;
 	#$out =~ s/[0-9]//g;
-	#return $out if length($out)<=$len;
-	return substr $out, 0, 4;
+	#return ($out,$dirty) if length($out)<=$len;
+	return (substr($out,0,4),$dirty);
 }
 sub solve_taxa {
 	my ($self, $old_cod, $ori1, $ori2, $ctr) = @_;
 	$self->{'unus'}->msg(5,"Solving conflict name for '$old_cod'");
-	my $pcod1 = $self->taxon($ori1,20);
-	my $pcod2 = $self->taxon($ori2,20);
+	my ($pcod1,$ori1) = $self->taxon($ori1,20);
+	my ($pcod2,$ori2) = $self->taxon($ori2,20);
 	$self->{'unus'}->msg(6,"Attempting to differentiate '$pcod1' and '$pcod2'");
 	if($pcod1 ne $pcod2){
 		my $pref_l = 0;

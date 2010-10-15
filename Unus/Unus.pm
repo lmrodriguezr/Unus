@@ -43,6 +43,7 @@ sub configure {
 			'configpath=s'	=> \$self->{'configpath'},
 			'basename=s'	=> \$self->{'basename'},
 			'genomes=s{1,}'	=> sub { push @{$self->{'genomes'}},$_[1] if $_[1] },
+			'genomesload'	=> \$self->{'genomesload'},
 			'dbprefix=s'	=> \$self->{'dbprefix'},
 			'blastdir=s'	=> \$self->{'blastdir'},
 			'orthdir=s'	=> \$self->{'orthdir'},
@@ -78,12 +79,20 @@ sub configure {
 			'alnload'	=> \$self->{'alnload'},
 		# Tests
 			'recombinationtest=s'	=> \$self->{'recombinationtest'},
+			'recombinationtestload'	=> \$self->{'recombinationtestload'},
 			'phitestbin=s'		=> \$self->{'phitestbin'},
 			'phitestsignificance=f'	=> \$self->{'phitestsignificance'},
 			'modeltest=s'		=> \$self->{'modeltest'},
 		# Output files
-			'nonexus'	=> \$self->{'nonexus'},
-			'nophylip'	=> \$self->{'nophylip'},
+			'nonexus'		=> \$self->{'nonexus'},
+			'outloadfastaaln'	=> \$self->{'outloadfastaaln'},
+			'outloadnexus'		=> \$self->{'outloadnexus'},
+			'nexnomb'		=> \$self->{'nexnomb'},
+			'nexnopaup'		=> \$self->{'nexnopaup'},
+			'nophylip'		=> \$self->{'nophylip'},
+			'outloadphylip'		=> \$self->{'outloadphylip'},
+			'noraxcoords'		=> \$self->{'noraxcoords'},
+			'outloadraxcoords'	=> \$self->{'outloadraxcoords'},
 	) or Pod::Usage::pod2usage(2);
 	Pod::Usage::pod2usage(1) if $help;
 	Pod::Usage::pod2usage(-exitstatus => 0, -verbose => 2) if $man;
@@ -147,7 +156,7 @@ sub run {
 sub clean_data {
 	my($self,@opts) = @_;
 	require Unus::Fasta;
-	my $fasta = Unus::Fasta->new($self);
+	my $fasta = Unus::Fasta->new(\$self);
 	$self->{'ori_genomes'} = $self->{'genomes'};
 	$self->{'genomes'} = $fasta->fasta_clean(@{$self->{'genomes'}});
 	$self->{'genes'} = [$self->{'genomes'}->[0]];
@@ -224,7 +233,8 @@ sub tests {
 			$self->msg(3,"Selected test: PHI-Test for recombination detection [Bruen, Philippe & Bryant 2006 Genetics 172(4):2665-81]");
 			require Unus::Test::Phi;
 			my $phitest = Unus::Test::Phi->new($self);
-			$self->{'alndir'} = $phitest->run(@opts);
+			#$self->{'alndir'} =
+			$phitest->run(@opts);
 		}
 		case /|none/ {
 			$self->msg(3,"Any recombination test selected, ignoring recombination.");
@@ -257,17 +267,23 @@ sub phylo_files {
 		LOGDIE "I can not find the '".$self->{'alndir'}."' directory, use the -alndir parameter or build the alignments with -alnmethod.";
 	-s $self->{'alndir'}.".manif" or
 		LOGDIE "I can not find the '".$self->{'alndir'}.".manif' file, use the -alndir parameter or build the alignments with -alnmethod.";
-	unless ( $self->{'nonexus'} && $self->{'nophylip'} ){
+	unless ( $self->{'nonexus'} ){
 		# Nexus
 		require Unus::Out::Nexus;
-		my $finalnexus = Unus::Out::Nexus->new($self);
-		$self->{'finalnexus'} = $finalnexus->create(@opts);
-		# ToDo
+		my $nexus = Unus::Out::Nexus->new(\$self);
+		$self->{'finalnexus'} = $nexus->create(@opts);
+	}
+	unless ( $self->{'nophylip'} ){
 		# Phylip
-		unless ( $self->{'nonexus'} ){
-			# ToDo
-			# RAxML coordinates
-		}
+		require Unus::Out::Phylip;
+		my $phylip = Unus::Out::Phylip->new(\$self);
+		$self->{'finalphylip'} = $phylip->create(@opts);
+	}
+	unless ( $self->{'noraxcoords'} ){
+		# RAxML coords file
+		require Unus::Out::RaxCoords;
+		my $raxcoords = Unus::Out::RaxCoords->new(\$self);
+		$self->{'finalraxcoords'} = $raxcoords->create(@opts);
 	}
 }
 ## S Y S T E M - W I D E   F U N C T I O N S ##
@@ -295,7 +311,7 @@ sub per_genome {
 }
 sub msg {
 	my ($self,$verb,$msg) = @_;
-	print "".(" "x$verb).$msg."\n" if $verb <= $self->{'verb'};
+	print "".("·"x$verb)." ".$msg."\n" if $verb <= $self->{'verb'};
 }
 sub open_progress {
 	my($self,$task,$N,$parallel,@opts) = @_;
