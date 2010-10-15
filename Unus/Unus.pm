@@ -30,6 +30,7 @@ sub configure {
 	my ($self, @args) = @_;
 	@args=@ARGV unless @args;
 	my($help,$man)=(0,0);
+	$self->{'configpath'} = ".::~/.unus:/etc/unus.d:/opt/unus/conf";
 	Getopt::Long::GetOptionsFromArray(\@args,
 		# General opts
 			'help|?'	=> \$help,
@@ -39,6 +40,7 @@ sub configure {
 			'conf=s'	=> \$self->{'conf'},
 			'dummy'		=> sub {  },
 		# Locations
+			'configpath=s'	=> \$self->{'configpath'},
 			'basename=s'	=> \$self->{'basename'},
 			'genomes=s{1,}'	=> sub { push @{$self->{'genomes'}},$_[1] if $_[1] },
 			'dbprefix=s'	=> \$self->{'dbprefix'},
@@ -63,6 +65,7 @@ sub configure {
 			'rbhxdropoff=i'		=> \$self->{'rbhxdropoff'},
 			'rbhnucpenalty=i'	=> \$self->{'rbhnucpenalty'},
 			'rbhfilter=s'		=> \$self->{'rbhfilter'},
+			'rbhnoextratables'	=> \$self->{'rbhnoextratables'},
 		# BLAST
 			'tblastx'	=> \$self->{'tblastx'},
 			'evalue=f'	=> \$self->{'evalue'},
@@ -76,6 +79,11 @@ sub configure {
 		# Tests
 			'recombinationtest=s'	=> \$self->{'recombinationtest'},
 			'phitestbin=s'		=> \$self->{'phitestbin'},
+			'phitestsignificance=f'	=> \$self->{'phitestsignificance'},
+			'modeltest=s'		=> \$self->{'modeltest'},
+		# Output files
+			'nonexus'	=> \$self->{'nonexus'},
+			'nophylip'	=> \$self->{'nophylip'},
 	) or Pod::Usage::pod2usage(2);
 	Pod::Usage::pod2usage(1) if $help;
 	Pod::Usage::pod2usage(-exitstatus => 0, -verbose => 2) if $man;
@@ -90,27 +98,34 @@ sub configure {
 sub load_conf {
 	my($self,$conf,@opts) = @_;
 	$conf = $self->{'conf'} unless defined $conf;
-	$conf = $conf.".conf" unless $conf=~m/\.conf$/ || -s $conf;
+	PATH:for my $dir ( split ':', $self->{'configpath'} ){
+		$dir =~ s{/+$}{};
+		my $c = $dir . "/" . $conf;
+		if ( -s $c || -s $c . ".conf") {
+			$conf = $dir . "/" . $conf . (-s $c?"":".conf");
+			last PATH;
+		}
+	}
 	$self->msg(3,"Reading configuration file '".$conf."'");
-	LOGDIE "I can't read the configuration file '".$conf."'" unless -r $conf;
+	LOGDIE "I can't read the configuration file '".$conf."': $!" unless -r $conf;
 	my @arr = ('-dummy');
-	open CNF, "<", $conf or LOGDIE "I can't open the file '".$conf."'";
+	open CNF, "<", $conf or LOGDIE "I can't open the file '".$conf."': $!";
 	my @cnf = <CNF>;
 	close CNF;
 	for(@cnf){
-			chomp;
-			s/\s*#.*$//;
-			next if m/^\s*$/;
-			if(m/^load\s+(.*)/){
-				#$self->{'conf'} = $1;
-				push @arr, $self->load_conf($1);
-			}elsif(m/^([^=]+)=(.*)/){
-				next if $1 eq 'conf';
-				push @arr, ("-$1",$2);
-				$self->msg(5,"Setting '$1' from file.");
-			}else{
-				LOGDIE "I can't parse the line $. of '".$conf."': $_";
-			}
+		chomp;
+		s/\s*#.*$//;
+		next if m/^\s*$/;
+		if(m/^load\s+(.*)/){
+			#$self->{'conf'} = $1;
+			push @arr, $self->load_conf($1);
+		}elsif(m/^([^=]+)=(.*)/){
+			next if $1 eq 'conf';
+			push @arr, ("-$1",$2);
+			$self->msg(5,"Setting '$1' from file.");
+		}else{
+			LOGDIE "I can't parse the line $. of '".$conf."': $_";
+		}
 	}
 	$self->{'conf'}="";
 	return wantarray ? @arr : \@arr;
@@ -126,6 +141,7 @@ sub run {
 	# [3] Tests
 	$self->tests(@opts);
 	# [4] Phylo files
+	$self->phylo_files(@opts);
 	# [5] Inference
 }
 sub clean_data {
@@ -157,7 +173,7 @@ sub calculate_orthologs {
 			$self->msg(2,"Selected criterion: OrthoMCL [Li, Stoeckert & Roos 2003 Genome Res 13(9):2178-89]");
 			Pod::Usage::pod2usage({-exitval=>1, -msg=>"Value for -orthcriterion still unimplemented"});
 		}
-		case 'noorth' {
+		case /none|noorth/ {
 			$self->msg(3,"No orthology search, reading further input");
 		}
 		else {
@@ -189,7 +205,7 @@ sub align {
 			my $clustalw = Unus::Align::ClustalW->new($self);
 			$self->{'alndir'} = $clustalw->run(@opts);
 		}
-		case 'noaln' {
+		case /none|noaln/ {
 			$self->msg(3,"No alignment execution, reading further input");
 		}
 		else {
@@ -206,12 +222,51 @@ sub tests {
 	switch ( $self->{'recombinationtest'} ) {
 		case 'phi' {
 			$self->msg(3,"Selected test: PHI-Test for recombination detection [Bruen, Philippe & Bryant 2006 Genetics 172(4):2665-81]");
+			require Unus::Test::Phi;
+			my $phitest = Unus::Test::Phi->new($self);
+			$self->{'alndir'} = $phitest->run(@opts);
 		}
-		case '' {
+		case /|none/ {
 			$self->msg(3,"Any recombination test selected, ignoring recombination.");
 		}
 		else {
 			Pod::Usage::pod2usage({-exitval=>1, -msg=>"Bad value for -recombinationtest: ".$self->{'recombinationtest'}});
+		}
+	}
+	switch ( $self->{'modeltest'} ) {
+		case 'modeltest' {
+			$self->msg(2,"This -modeltest value is still unimplemented, ignoring...");
+		}
+		case 'mrmodeltest' {
+			$self->msg(2,"This -modeltest value is still unimplemented, ignoring...");
+		}
+		case 'jmodeltest' {
+			$self->msg(2,"This -modeltest value is still unimplemented, ignoring...");
+		}
+		case /|none/ {
+			$self->msg(2,"Any substitution model test selected, ignoring substitution models.");
+		}
+		else {
+			Pod::Usage::pod2usage({-exitval=>1, -msg=>"Bad value for -modeltest: ".$self->{'modeltest'}});
+		}
+	}
+}
+sub phylo_files {
+	my ($self,@opts) = @_;
+	-d $self->{'alndir'} or
+		LOGDIE "I can not find the '".$self->{'alndir'}."' directory, use the -alndir parameter or build the alignments with -alnmethod.";
+	-s $self->{'alndir'}.".manif" or
+		LOGDIE "I can not find the '".$self->{'alndir'}.".manif' file, use the -alndir parameter or build the alignments with -alnmethod.";
+	unless ( $self->{'nonexus'} && $self->{'nophylip'} ){
+		# Nexus
+		require Unus::Out::Nexus;
+		my $finalnexus = Unus::Out::Nexus->new($self);
+		$self->{'finalnexus'} = $finalnexus->create(@opts);
+		# ToDo
+		# Phylip
+		unless ( $self->{'nonexus'} ){
+			# ToDo
+			# RAxML coordinates
 		}
 	}
 }
@@ -265,7 +320,7 @@ sub add_progress {
 		$box-= length($self->{'progress_task'}) + 10 + 15;
 		my $m = int(1000*($self->{'progress'})/$self->{'progress_size'});
 		my $p = int($box*$m/1000);
-		print " [".("="x$p).">".(" "x($box-$p))."] ".($m/10)."%  Left: ".
+		print " [".("="x$p).">".(" "x($box-$p))."] ".sprintf("%.1f",$m/10)."%  Left: ".
 			sec2hr((time-$self->{'progress_start'})*($self->{'progress_size'}-$self->{'progress'})/($self->{'progress'}))."     ";
 	}else{
 		print ": ".$self->{'progress'}.".  Elapsed: ".(time - $self->{'progress_start'})."s     ";

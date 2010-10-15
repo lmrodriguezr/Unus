@@ -100,7 +100,7 @@ sub groups2fasta {
 		GENOME:for my $genome (0 .. $#row){
 			$out->write_seq($fasta->get_sequence($self->{'genomes'}->[$genome], $row[$genome]));
 		}
-		open MANIF, ">", $manif or LOGDIE "I can not write in the '$manif' file.";
+		open MANIF, ">>", $manif or LOGDIE "I can not write in the '$manif' file.";
 		print MANIF $orthdir."/$id.fasta\n";
 		close MANIF;
 		$self->{'unus'}->add_progress;

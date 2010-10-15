@@ -59,9 +59,12 @@ sub run {
 }
 sub align {
 	my ($self,$in,$out,@opts) = @_;
-	my $factory = Bio::Tools::Run::Alignment::Clustalw->new(-outfile_name=>$out);
+	my $factory = Bio::Tools::Run::Alignment::Clustalw->new();
+	my $outfile = Bio::AlignIO->new(-file=>">$out", -format=>"Fasta");
 	$factory->quiet(1);
-	$factory->align($in,@opts);
+	my $outaln = $factory->align($in,@opts);
+	$outaln->map_chars('\.','-');
+	$outfile->write_aln($outaln);
 	return;
 }
 1;

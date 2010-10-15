@@ -15,6 +15,7 @@ sub new {
 		'rbhxdropoff'=>150,
 		'rbhnucpenalty'=>-1,
 		'rbhfilter'=>'F',
+		'rbhnoextratables'=>0,
 		'orthloadpairs'=>1,
 	};
 	bless $self, $class;
@@ -34,10 +35,12 @@ sub run {
 sub build_orthref_file {
 	my ($self,@opts) = @_;
 	my $orthref_file = $self->{'unus'}->{'basename'}.".orthref";
+	my $preextratable = $self->{'unus'}->{'basename'}.".orth.pretable";
 	return $orthref_file if -s $orthref_file && $self->{'orthloadpairs'};
 	$self->{'unus'}->msg(3,"Building the orthpairs file");
 	# Run
-	if(-s $orthref_file){ unlink $orthref_file or LOGDIE "I can't delete the '$orthref_file' file" }
+	if(!$self->{'rbhnoextratables'} && -s $preextratable){ unlink $preextratable or LOGDIE "I can't delete the '$preextratable' file: $!" }
+	if(-s $orthref_file){ unlink $orthref_file or LOGDIE "I can't delete the '$orthref_file' file: $!" }
 	$self->{'unus'}->open_progress('Building orthology groups', $self->{'unus'}->{'number_of_genes'}, 1);
 	my $tmp_fasta = Unus::Fasta->new($self->{'unus'});
 	GENESFILE:for my $file (@{$self->{'unus'}->{'genes'}}){
@@ -67,9 +70,15 @@ sub build_orthref_file {
 							-bits=>$self->{'rbhscorethreshold'}*$hit->hsp->bits);
 					if(@back_hits && $#back_hits==0){
 						if($back_hits[0]->accession eq $seq->display_id){
-							open ORTH, ">>", $orthref_file or LOGDIE "I can't write on the '$orthref_file' file: $!";
+							open ORTH, ">>", $orthref_file or LOGDIE "I can not write on the '$orthref_file' file: $!";
 							print ORTH $seq->display_id."\t$genome\t".$hit->accession."\n";
 							close ORTH;
+							unless($self->{'rbhnoextratables'}){
+								open PRETAB, ">>", $preextratable or LOGDIE "I can not write on the '$preextratable' file: $!";
+								print PRETAB $seq->display_id."\t$genome\t".($back_hits[0]->hsp->bits/$hit->hsp->bits).
+									"\t".$hit->hsp->bits."\t".$hit->hsp->evalue."\n";
+								close PRETAB;
+							}
 						}
 					}
 				}

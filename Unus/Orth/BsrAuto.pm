@@ -88,10 +88,11 @@ sub build_histogram {
 		chomp;
 		m/^(\d+)\t([\d\.]+)$/ or LOGDIE "I can't parse the $. line from '$hist_file': $_";
 		$self->{'bsrdata'}->[$1] = [] unless defined $self->{'bsrdata'}->[$1];
-		push @{$self->{'bsrdata'}->[$1]}, $2;
+		my $bsratio = $2>1 && $2<($self->{'unus'}->{'tblastx'}?3:1.5) ? 1 : $2+0; # <- This is to correct a small BLAST bug
+		push @{$self->{'bsrdata'}->[$1]}, $bsratio;
 		unless(defined $self->{'bsrhist'}->[$1]){ $self->{'bsrhist'}->[$1]->[$_] = 0 for (0 .. $self->{'bsrx'}) }
-		LOGDIE "BSR '$2' out of range '0-".$self->{'bsrx'}."'" unless defined $self->{'bsrhist'}->[$1]->[$2*$self->{'bsrx'}];
-		$self->{'bsrhist'}->[$1]->[$2*$self->{'bsrx'}]++;
+		LOGDIE "BSR '$bsratio' out of range '0-".$self->{'bsrx'}."'" unless defined $self->{'bsrhist'}->[$1]->[$bsratio*$self->{'bsrx'}];
+		$self->{'bsrhist'}->[$1]->[$bsratio*$self->{'bsrx'}]++;
 	}
 	close HISTOGRAM;
 	$self->{'unus'}->msg(3,"Analyzing the BSR distribution in the search for thresholds");
@@ -164,7 +165,7 @@ sub build_histogram {
 		}
 		$self->{'polygons'}->[$genome] = [];
 		push @{ $self->{'polygons'}->[$genome] }, $_/$self->{'bsrwins'} for @polygon;
-	} # GENOME
+	} # END GENOME
 	my $N = 0;
 	$N+=$_ for(@{ $self->{'known_topology'} });
 	$self->{'mean_thr'} = $self->{'mean_thr'}/$N;

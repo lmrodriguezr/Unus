@@ -65,8 +65,8 @@ sub taxon {
 	return $out if length($out)<=$len;
 	$out=~s/[^A-Za-z0-9]//g;
 	return $out if length($out)<=$len;
-	$out =~ s/[0-9]//g;
-	return $out if length($out)<=$len;
+	#$out =~ s/[0-9]//g;
+	#return $out if length($out)<=$len;
 	return substr $out, 0, 4;
 }
 sub solve_taxa {
