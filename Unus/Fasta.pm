@@ -47,7 +47,7 @@ sub fasta_clean {
 	for my $genome (@in){
 		my $taxon = $coded_taxa{$genome};
 		push @out, $self->{'unus'}->{'basename'}.".in/$taxon";
-		next if -s $genome && $self->{'unus'}->{'genomesload'};
+		next if -s $self->{'unus'}->{'basename'}.".in/$taxon" && $self->{'unus'}->{'genomesload'};
 		$self->{'unus'}->msg(3,"Cleaning the genome '$genome' (".$coded_taxa{$genome}.")");
 		my $i = 0;
 		my $in = Bio::SeqIO->new(-file=>$genome, -format=>'Fasta');
