@@ -1,7 +1,8 @@
 package Unus::Orth::BsrAuto;
 use strict;
-use Bio::SeqIO;
 use Unus::Blast;
+use Bio::SeqIO;
+use File::Basename;
 use Log::Log4perl qw(:easy);
 
 sub new {
@@ -176,7 +177,10 @@ sub build_histogram {
 	my $dot_size = 1/$self->{'bsrx'};
 	print BSRGRAPH "pdf(file='".$self->{'unus'}->{'basename'}.".bsrgraph.pdf');\n";
 	for my $genome (0 .. $#{ $self->{'unus'}->{'genomes'} }){
-		print BSRGRAPH 	"plot(idx,log(genome$genome),xlab='BitScore Ratio',ylab='".$self->{'genomes'}->[$genome].
+		print BSRGRAPH 	"plot(idx,log(genome$genome),xlab='BitScore Ratio',ylab='".
+						$self->{'bsrpolygonration'}."*log(#HSPs)',main='".
+						basename($self->{'genomes'}->[0])." vs ".
+						basename($self->{'genomes'}->[$genome]).
 						"',type='l',col='cornflowerblue');\n";
 		print BSRGRAPH	"polygon(c(".($self->{'win_thrs'}->[$genome]-$win_size).",".$self->{'win_thrs'}->[$genome].",".
 						$self->{'win_thrs'}->[$genome].",".($self->{'win_thrs'}->[$genome]-$win_size)."),".

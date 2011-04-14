@@ -50,13 +50,17 @@ sub fasta_clean {
 		next if -s $self->{'unus'}->{'basename'}.".in/$taxon" && $self->{'unus'}->{'genomesload'};
 		$self->{'unus'}->msg(3,"Cleaning the genome '$genome' (".$coded_taxa{$genome}.")");
 		my $i = 0;
+		my $map = $self->{'unus'}->{'basename'}.".map.$taxon";
+		open REF, ">", $map or LOGDIE "I can not write in the '$map' file: $!";
 		my $in = Bio::SeqIO->new(-file=>$genome, -format=>'Fasta');
 		my $out = Bio::SeqIO->new(-file=>">".$self->{'unus'}->{'basename'}.".in/$taxon", -format=>'Fasta');
 		while(my $seq = $in->next_seq){
+			print REF "$taxon:$i\t".$seq->display_id."\t".$seq->desc."\n";
 			$seq->display_id("$taxon:".(++$i));
 			$seq->desc('');
 			$out->write_seq($seq);
 		}
+		close REF;
 	}
 	$self->{'unus'}->{'outgroup'}=$coded_taxa{$self->{'unus'}->{'outgroupin'}} if($self->{'unus'}->{'outgroupin'});
 	return wantarray ? @out : \@out;

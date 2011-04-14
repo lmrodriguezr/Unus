@@ -56,6 +56,7 @@ sub filter_orthref_file {
 			} # GENOME
 			# Save results if OK
 			if($ok){
+				$self->{'unus'}->msg(7,"Saved '$id': ",join(', ', @group));
 				open TABLE, ">>", $orthtable_file or LOGDIE "I can't write on the the '$orthtable_file' file: $!";
 				print TABLE join("\t",@group)."\n";
 				close TABLE;

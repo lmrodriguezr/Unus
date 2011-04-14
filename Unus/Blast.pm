@@ -53,22 +53,28 @@ sub run {
 			or LOGDIE "Error running formatdb: $!";
 	}
 	my $file = "";
+	$self->{'report_file'} = "";
 	if($self->{'blastdir'}){
 		$file = $self->{'blastdir'}."/".$opt{'tag'}.
 			# ToDo: enhance class detection here
 			(-s $self->{'query'} ? md5_hex($self->{'query'}) : $self->{'query'}->display_id).
 			"__".basename($self->{'db'}).".blast";
+		$self->{'blast_dir'} = $file;
 		if(-s $file){
 			$self->{'unus'}->msg(6,"Loading BLAST at $file");
-			$self->{'report'} = Bio::SearchIO->new(-file=>$file, -format=>"blast");
+			$self->{'report'} = Bio::SearchIO->new(
+					-file=>$file,
+					-format=>"blastxml");
 			return;
 		}
 	}
 	# Load it only if mandatory
 	require Bio::Tools::Run::StandAloneBlast;
 	my $factory = Bio::Tools::Run::StandAloneBlast->new(
-				-database=>$self->{'db'}, -e=>$opt{'evalue'}, -p=>$self->{'program'},
-				-a=>$self->{'cpus'}, -v=>$opt{'blastresults'}, -b=>$opt{'blastresults'});
+				-database=>$self->{'db'},
+				-e=>$opt{'evalue'}, -p=>$self->{'program'},
+				-a=>$self->{'cpus'}, -v=>$opt{'blastresults'},
+				-b=>$opt{'blastresults'}, -m=>7);
 	$factory->o($file) if $file;
 	$self->{'unus'}->msg(6,"Running BLAST".($file?" and saving output at $file":""));
 	$self->{'report'} = $factory->blastall($self->{'query'});
@@ -77,7 +83,7 @@ sub run {
 		while(my $result = $self->{'report'}->next_result){
 			my $f = $self->{'blastdir'}."/".$result->query_accession."__".basename($self->{'db'}).".blast";
 			my $sO = Bio::SearchIO->new(
-					-file=>">$f", -output_format=>'Blast')
+					-file=>">$f", -output_format=>'BlastXML')
 					or LOGDIE "I can't create the report '$f': $!";
 			$sO->write_result($result)
 					or LOGDIE "I can't write the result from query '".$result->query_accession.
@@ -89,38 +95,77 @@ sub hsps {
 	my ($self,@opts) = @_;
 	my @out=();
 	return (wantarray?@out:\@out) unless $self->{'report'};
+	
+	# Set search parameters
 	my %new = @opts;
-	my %a = (-evalue=>$self->{'evalue'}, -score=>0, -bits=>0, -length=>0, -identity=>$self->{'similarity'}, -positives=>$self->{'similarity'});
+	my %a = (	-evalue=>$self->{'evalue'},
+			-score=>0,
+			-bits=>0,
+			-length=>0,
+			-identity=>$self->{'similarity'},
+			-positives=>$self->{'similarity'},
+			-onlybesthsp=>0,
+			-returnhits=>0);
 	for my $k(keys %new){ my $kl = $k; $kl=~s/^([^-].*)/-$1/; $a{$kl}=$new{$k}+0; }
+	
+	# Create safety file
+	if($self->{'report_file'}){copy $self->{'report_file'}, $self->{'report_file'}.".ub" or
+			LOGDIE "I can not copy '".$self->{'report_file'}
+			."' into '".$self->{'report_file'}.".ub' file: $!"}
+	
+	# Run
 	RESULT:while(my $result = $self->{'report'}->next_result){
 		HIT:while(my $hit = $result->next_hit){
+			next HIT unless $hit->num_hsps;
 			HSP:while(my $hsp = $hit->next_hsp){
-				push @out, $hsp if
-					$hsp->evalue<=$a{'-evalue'} && $hsp->score>=$a{'-score'} &&
-					$hsp->bits>=$a{'-bits'} && $hsp->length('-query')>=$a{'-length'} &&
-					$hsp->frac_identical>=$a{'-identity'} && $hsp->frac_conserved>=$a{'-positives'};
+				my $ret = $a{'-returnhits'} ? $hit : $hsp;
+				push @out, $ret if
+					$hsp->evalue<=$a{'-evalue'} &&
+					$hsp->score>=$a{'-score'} &&
+					$hsp->bits>=$a{'-bits'} &&
+					$hsp->length('-query')>=$a{'-length'} &&
+					$hsp->frac_identical>=$a{'-identity'} &&
+					$hsp->frac_conserved>=$a{'-positives'};
+				next HIT if $a{'-onlybesthsp'};
 			}
 		}
 	}
+	
+	# Remove safety file
+	if($self->{'report_file'}){unlink $self->{'report_file'}.".ub" or
+			LOGDIE "I can not delete the '".$self->{'report_file'}.".ub' file: $!"}
 	return wantarray ? @out : \@out;
 }
 sub hits {
 	my ($self,@opts) = @_;
+	return $self->hsps("-onlybesthsp",1,"-returnhits",1,@opts);
 	my @out=();
 	return (wantarray?@out:\@out) unless $self->{'report'};
 	my %new = @opts;
-	my %a = (-evalue=>$self->{'evalue'}, -score=>0, -bits=>0, -length=>0, -identity=>$self->{'similarity'}, -positives=>$self->{'similarity'});
+	my %a = (	-evalue=>$self->{'evalue'},
+			-score=>0,
+			-bits=>0,
+			-length=>0,
+			-identity=>$self->{'similarity'},
+			-positives=>$self->{'similarity'});
 	for my $k(keys %new){ my $kl = $k; $kl=~s/^([^-].*)/-$1/; $a{$kl}=$new{$k}+0; }
+	if($self->{'report_file'}){copy $self->{'report_file'}, $self->{'report_file'}.".ub" or
+			LOGDIE "I can not copy '".$self->{'report_file'}
+			."' into '".$self->{'report_file'}.".ub' file: $!"}
 	RESULT:while(my $result = $self->{'report'}->next_result){
 		HIT:while(my $hit = $result->next_hit){
-			next HIT unless $hit->num_hsps;
 			my $hsp = $hit->hsp;
 			push @out, $hit if
-					$hsp->evalue<=$a{'-evalue'} && $hsp->score>=$a{'-score'} &&
-					$hsp->bits>=$a{'-bits'} && $hsp->length('-query')>=$a{'-length'} &&
-					$hsp->frac_identical>=$a{'-identity'} && $hsp->frac_conserved>=$a{'-positives'};
+					$hsp->evalue<=$a{'-evalue'} &&
+					$hsp->score>=$a{'-score'} &&
+					$hsp->bits>=$a{'-bits'} &&
+					$hsp->length('-query')>=$a{'-length'} &&
+					$hsp->frac_identical>=$a{'-identity'} &&
+					$hsp->frac_conserved>=$a{'-positives'};
 		}
 	}
+	if($self->{'report_file'}){unlink $self->{'report_file'}.".ub" or
+			LOGDIE "I can not delete the '".$self->{'report_file'}.".ub' file: $!"}
 	return wantarray ? @out : \@out;
 }
 sub best_hit {

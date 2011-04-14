@@ -3,6 +3,7 @@ use strict;
 use Log::Log4perl qw(:easy);
 use File::Copy;
 use File::chdir;
+use File::Basename;
 use Cwd 'abs_path';
 
 sub new {
@@ -58,7 +59,8 @@ sub test_recombination {
 		unless($self->{'unus'}->{'cpus'}==1){$self->{'unus'}->{'pm'}->start and next}
 		
 		chdir "$aln.phi";
-		`$phi -f '$aln' &>$aln.phi/Phi.out` or LOGDIE "I can not execute the PHI test: $phi:\n$!";# unless $?==0;
+		system "$phi -f '$aln' &>$aln.phi/Phi.out";
+		LOGDIE "I can not execute the PHI test: $phi:\n$!" unless $?==0;
 		-s "Phi.log" or LOGDIE "PHI test ($phi -f '$aln' &>$aln.phi/Phi.out) returned an empty output, please check '$aln.phi/Phi.out' to inspect the reasons.";
 		copy "Phi.inf.sites", "$aln.phi.inf.fasta";
 		copy "Phi.log","$aln.phi.log";
@@ -70,7 +72,7 @@ sub test_recombination {
 		while(<PHI>){
 			if(m/^PHI \(Normal\): *([\d\.eE-]+)/){
 				if($1 ne "--" && $1+0<=$self->{'phitestsignificance'}){
-					$self->{'unus'}->msg(5,"Discarded alignment for recombination suspect (p:".($1+0)."): $aln");
+					$self->{'unus'}->msg(5,"Discarded alignment for recombination suspect (p=".($1+0)."): ".basename($aln));
 				}else{
 					open NEWMANIF, ">>", $newmanif or LOGDIE "I can not write in the '$newmanif' file: $!";
 					print NEWMANIF $alnrel,"\n";

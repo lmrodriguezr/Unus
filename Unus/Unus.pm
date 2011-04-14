@@ -19,11 +19,12 @@ sub new {
 			'orthcriterion'=>'bsr',
 	};
 	bless $self, $class;
+	$self->{'start_time'} = time;
+	$self->msg(1,'Unus started');
 	# Read the args
 	$self->configure(@args);
    	$self->{'pm'} = new Parallel::ForkManager(1);
    	$self->{'pm'}->set_max_procs($self->{'cpus'});
-	$self->msg(1,'Unus started');
 	return $self;
 }
 sub configure {
@@ -311,7 +312,9 @@ sub per_genome {
 }
 sub msg {
 	my ($self,$verb,$msg) = @_;
-	print "".("·"x$verb)." ".$msg."\n" if $verb <= $self->{'verb'};
+	print "".($self->{'verb'}>1?"[".sec2hr(time-$self->{'start_time'})."]":"").(" "x$verb)." $msg\n" if $verb <= $self->{'verb'};
+	#print #($self->{'verb'}>1?"[".sec2hr(time - $self->{'start_time'})."] ":"").
+	#	("·"x$verb)." ".$msg."\n" if $verb <= $self->{'verb'};
 }
 sub open_progress {
 	my($self,$task,$N,$parallel,@opts) = @_;
