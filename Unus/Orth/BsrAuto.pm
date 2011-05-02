@@ -87,6 +87,7 @@ sub build_histogram {
 	open HISTOGRAM, "<", $hist_file or LOGDIE "I can't read the histogram file '$hist_file': $!";
 	while(<HISTOGRAM>){
 		chomp;
+		next if /^\s*$/;
 		m/^(\d+)\t([\d\.]+)$/ or LOGDIE "I can't parse the $. line from '$hist_file': $_";
 		$self->{'bsrdata'}->[$1] = [] unless defined $self->{'bsrdata'}->[$1];
 		my $bsratio = $2>1 && $2<($self->{'unus'}->{'tblastx'}?3:1.5) ? 1 : $2+0; # <- This is to correct a small BLAST bug
