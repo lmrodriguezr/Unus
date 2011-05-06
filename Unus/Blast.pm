@@ -73,7 +73,9 @@ sub run {
 	my $factory = Bio::Tools::Run::StandAloneBlast->new(
 				-database=>$self->{'db'},
 				-e=>$opt{'evalue'}, -p=>$self->{'program'},
-				-a=>$self->{'cpus'}, -v=>$opt{'blastresults'},
+				#-a=>$self->{'cpus'},
+				-a => 1,
+				-v=>$opt{'blastresults'},
 				-b=>$opt{'blastresults'}, -m=>7);
 	$factory->o($file) if $file;
 	$self->{'unus'}->msg(6,"Running BLAST".($file?" and saving output at $file":""));
