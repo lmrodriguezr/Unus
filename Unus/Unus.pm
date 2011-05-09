@@ -75,6 +75,7 @@ sub configure {
 			'similarity=f'	=> \$self->{'similarity'},
 			'blastbins=s'	=> \$self->{'blastbins'},
 			'blastresults=i'=> \$self->{'blastresults'},
+			'blastcpus=i'	=> \$self->{'blastcpus'},
 		# Alignments
 			'alnmethod=s'	=> \$self->{'alnmethod'},
 			'alnload'	=> \$self->{'alnload'},

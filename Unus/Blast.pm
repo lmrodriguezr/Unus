@@ -14,7 +14,7 @@ sub new {
 		'evalue'=>10,
 		'identity'=>0,
 		'similarity'=>0,
-		'cpus'=>1,
+		'blastcpus'=>1,
 		'blastdir'=>'',
 		'blastbins'=>'',
 		'blastresults'=>300,
@@ -73,8 +73,7 @@ sub run {
 	my $factory = Bio::Tools::Run::StandAloneBlast->new(
 				-database=>$self->{'db'},
 				-e=>$opt{'evalue'}, -p=>$self->{'program'},
-				#-a=>$self->{'cpus'},
-				-a => 1,
+				-a=>$self->{'blastcpus'},
 				-v=>$opt{'blastresults'},
 				-b=>$opt{'blastresults'}, -m=>7);
 	$factory->o($file) if $file;
