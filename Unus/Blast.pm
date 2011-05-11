@@ -53,6 +53,7 @@ sub run {
 			or LOGDIE "Error running formatdb: $!";
 	}
 	my $file = "";
+	$self->{'report'} = undef;
 	$self->{'report_file'} = "";
 	if($self->{'blastdir'}){
 		$file = $self->{'blastdir'}."/".$opt{'tag'}.
@@ -65,31 +66,67 @@ sub run {
 			$self->{'report'} = Bio::SearchIO->new(
 					-file=>$file,
 					-format=>"blastxml");
-			return;
 		}
 	}
-	# Load it only if mandatory
-	require Bio::Tools::Run::StandAloneBlast;
-	my $factory = Bio::Tools::Run::StandAloneBlast->new(
+	unless($self->{'report'}){
+		# Load it only if mandatory
+		require Bio::Tools::Run::StandAloneBlast;
+		my $factory = Bio::Tools::Run::StandAloneBlast->new(
 				-database=>$self->{'db'},
 				-e=>$opt{'evalue'}, -p=>$self->{'program'},
 				-a=>$self->{'blastcpus'},
 				-v=>$opt{'blastresults'},
 				-b=>$opt{'blastresults'}, -m=>7);
-	$factory->o($file) if $file;
-	$self->{'unus'}->msg(6,"Running BLAST".($file?" and saving output at $file":""));
-	$self->{'report'} = $factory->blastall($self->{'query'});
-	if(-s $self->{'query'} && $file && $self->{'blastdir'}){
+		$factory->o($file) if $file;
+		$self->{'unus'}->msg(6,"Running BLAST".($file?" and saving output at $file":""));
+		$self->{'report'} = $factory->blastall($self->{'query'});
+	}
+	if($self->{'report'} && -s $self->{'query'} && $file && $self->{'blastdir'}){
 		$self->{'unus'}->msg(6,"Splitting BLAST report saved in '$file'");
-		while(my $result = $self->{'report'}->next_result){
-			my $f = $self->{'blastdir'}."/".$result->query_accession."__".basename($self->{'db'}).".blast";
-			my $sO = Bio::SearchIO->new(
-					-file=>">$f", -output_format=>'BlastXML')
-					or LOGDIE "I can't create the report '$f': $!";
-			$sO->write_result($result)
-					or LOGDIE "I can't write the result from query '".$result->query_accession.
-					"', file '$file': $!";
+		#while(my $result = $self->{'report'}->next_result){
+		#	my $f = $self->{'blastdir'}."/".$result->query_accession."__".basename($self->{'db'}).".blast";
+		#	my $sO = Bio::SearchIO->new(
+		#			-file=>">$f", -output_format=>'blastxml')
+		#			or LOGDIE "I can't create the report '$f': $!";
+		#	$sO->write_result($result)
+		#			or LOGDIE "I can't write the result from query '".$result->query_accession.
+		#			"', file '$file': $!";
+		#}
+		my $xml_header = "";
+		my $xml_footer = "  </BlastOutput_iterations>\n</BlastOutput>\n";
+		my $xml_oniter = 0;
+		my $xml_query  = "";
+		my $xml_iter   = "";
+		open XML, "<", $file or LOGDIE "I can't read '$file': $!";
+		while(<XML>){
+			if($xml_oniter){
+				if(m{</Iteration>}){
+				   print XMLOUT $_;
+				   print XMLOUT $xml_footer;
+				   close XMLOUT;
+				   $xml_query = "";
+				   $xml_oniter = 0;
+				}elsif($xml_query){
+				   print XMLOUT $_;
+				}elsif(m{<Iteration_query-def>(.*?)</Iteration_query-def>}){
+				   $xml_query = $1;
+				   my $Ofile = $self->{'blastdir'}."/".$xml_query."__".basename($self->{'db'}).".blast";
+				   open XMLOUT, ">", $Ofile or LOGDIE "I can't create the report '$Ofile': $!";
+				   print XMLOUT $xml_header;
+				   print XMLOUT $xml_iter;
+				   print XMLOUT $_;
+				   $xml_iter  = "";
+				}else{
+				   $xml_iter.= $_;
+				}
+			}elsif(m{<Iteration>}){
+			   $xml_oniter = 1;
+			   $xml_iter   = $_;
+			}else{
+			   $xml_header.= $_;
+			}
 		}
+		close XML;
 	}
 }
 sub hsps {
