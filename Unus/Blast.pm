@@ -19,6 +19,7 @@ sub new {
 		'blastbins'=>'',
 		'blastresults'=>300,
 		'tag'=>'',
+		'blastoutformat'=>'xml',
 	};
 	my %args = @opts;
 	bless $self, $class;
@@ -57,15 +58,20 @@ sub run {
 	$self->{'report_file'} = "";
 	if($self->{'blastdir'}){
 		$file = $self->{'blastdir'}."/".$opt{'tag'}.
-			# ToDo: enhance class detection here
-			(-s $self->{'query'} ? md5_hex($self->{'query'}) : $self->{'query'}->display_id).
+			##(not ref($self->{'query'}) and -s $self->{'query'} ? md5_hex($self->{'query'}) : $self->{'query'}->display_id).
+			(not ref($self->{'query'}) and -s $self->{'query'} ? "full-".basename($self->{'query'}) : $self->{'query'}->display_id).
 			"__".basename($self->{'db'}).".blast";
 		$self->{'blast_dir'} = $file;
 		if(-s $file){
-			$self->{'unus'}->msg(6,"Loading BLAST at $file");
+			$self->{'unus'}->msg(6,"Loading XML BLAST at $file");
 			$self->{'report'} = Bio::SearchIO->new(
 					-file=>$file,
 					-format=>"blastxml");
+		}elsif($self->{'blastoutformat'} eq 'tab' and -s $file.".tab"){
+			$self->{'unus'}->msg(6,"Loading TAB BLAST at $file");
+			$self->{'report'} = Bio::SearchIO->new(
+					-file=>$file,
+					-format=>"blasttable");
 		}
 	}
 	unless($self->{'report'}){
@@ -83,22 +89,14 @@ sub run {
 	}
 	if($self->{'report'} && -s $self->{'query'} && $file && $self->{'blastdir'}){
 		$self->{'unus'}->msg(6,"Splitting BLAST report saved in '$file'");
-		#while(my $result = $self->{'report'}->next_result){
-		#	my $f = $self->{'blastdir'}."/".$result->query_accession."__".basename($self->{'db'}).".blast";
-		#	my $sO = Bio::SearchIO->new(
-		#			-file=>">$f", -output_format=>'blastxml')
-		#			or LOGDIE "I can't create the report '$f': $!";
-		#	$sO->write_result($result)
-		#			or LOGDIE "I can't write the result from query '".$result->query_accession.
-		#			"', file '$file': $!";
-		#}
-		my $xml_header = "";
-		my $xml_footer = "  </BlastOutput_iterations>\n</BlastOutput>\n";
-		my $xml_oniter = 0;
-		my $xml_query  = "";
-		my $xml_iter   = "";
-		open XML, "<", $file or LOGDIE "I can't read '$file': $!";
-		while(<XML>){
+		if($self->{'blastoutformat'} eq 'xml'){
+		   my $xml_header = "";
+		   my $xml_footer = "  </BlastOutput_iterations>\n</BlastOutput>\n";
+		   my $xml_oniter = 0;
+		   my $xml_query  = "";
+		   my $xml_iter   = "";
+		   open XML, "<", $file or LOGDIE "I can't read '$file': $!";
+		   while(<XML>){
 			if($xml_oniter){
 				if(m{</Iteration>}){
 				   print XMLOUT $_;
@@ -125,8 +123,34 @@ sub run {
 			}else{
 			   $xml_header.= $_;
 			}
+		   }
+		   close XML;
+		}elsif($self->{'blastoutformat'} eq 'tab'){
+		   while(my $result = $self->{'report'}->next_result){
+		   	my $f  = $self->{'blastdir'}."/".$result->query_accession."__".basename($self->{'db'}).".blast.tab";
+			open TAB, ">", $f or LOGDIE "I can't create the report '$f': $!";
+			while(my $hit = $result->next_hit){
+				while(my $hsp = $hit->next_hsp){
+					print TAB $result->query_accession, "\t",
+						$hit->name, "\t", $hsp->percent_identity, "\t",
+						$hsp->length, "\t", $hsp->length-$hsp->matches, "\t",
+						$hsp->gaps, "\t", $hsp->start('query'), "\t", $hsp->end('query'), "\t",
+						$hsp->start('subject'), "\t", $hsp->end('subject'), "\t",
+						$hsp->evalue, "\t", $hsp->bits, "\n";
+				}
+			}
+			close TAB;
+		   }
+		#while(my $result = $self->{'report'}->next_result){
+		#	my $f = $self->{'blastdir'}."/".$result->query_accession."__".basename($self->{'db'}).".blast";
+		#	my $sO = Bio::SearchIO->new(
+		#			-file=>">$f", -output_format=>'blastxml')
+		#			or LOGDIE "I can't create the report '$f': $!";
+		#	$sO->write_result($result)
+		#			or LOGDIE "I can't write the result from query '".$result->query_accession.
+		#			"', file '$file': $!";
+		#}
 		}
-		close XML;
 	}
 }
 sub hsps {
