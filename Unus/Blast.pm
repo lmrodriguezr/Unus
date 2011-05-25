@@ -85,6 +85,7 @@ sub run {
 				-b=>$opt{'blastresults'}, -m=>7);
 		$factory->o($file) if $file;
 		$self->{'unus'}->msg(6,"Running BLAST".($file?" and saving output at $file":""));
+		$factory->program_dir($self->{'blastbins'}) if $self->{'blastbins'};
 		$self->{'report'} = $factory->blastall($self->{'query'});
 	}
 	if($self->{'report'} && -s $self->{'query'} && $file && $self->{'blastdir'}){
