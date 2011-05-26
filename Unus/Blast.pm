@@ -62,18 +62,19 @@ sub run {
 			(not ref($self->{'query'}) and -s $self->{'query'} ? "full-".basename($self->{'query'}) : $self->{'query'}->display_id).
 			"__".basename($self->{'db'}).".blast";
 		$self->{'blast_dir'} = $file;
-		if(-s $file){
-			$self->{'unus'}->msg(6,"Loading XML BLAST at $file");
+		if(-s $file.".xml"){
+			$self->{'unus'}->msg(6,"Loading XML BLAST at $file.xml");
 			$self->{'report'} = Bio::SearchIO->new(
-					-file=>$file,
+					-file=>"$file.xml",
 					-format=>"blastxml");
 		}elsif($self->{'blastoutformat'} eq 'tab' and -s $file.".tab"){
-			$self->{'unus'}->msg(6,"Loading TAB BLAST at $file");
+			$self->{'unus'}->msg(6,"Loading TAB BLAST at $file.tab");
 			$self->{'report'} = Bio::SearchIO->new(
-					-file=>$file,
+					-file=>"$file.tab",
 					-format=>"blasttable");
 		}
 	}
+ 	$file.= ".".$self->{'blastoutformat'} if $file;
 	unless($self->{'report'}){
 		# Load it only if mandatory
 		require Bio::Tools::Run::StandAloneBlast;
@@ -82,7 +83,7 @@ sub run {
 				-e=>$opt{'evalue'}, -p=>$self->{'program'},
 				-a=>$self->{'blastcpus'},
 				-v=>$opt{'blastresults'},
-				-b=>$opt{'blastresults'}, -m=>7);
+				-b=>$opt{'blastresults'}, -m=>($self->{'blastoutformat'} eq 'tab' ? 8 : 7));
 		$factory->o($file) if $file;
 		$self->{'unus'}->msg(6,"Running BLAST".($file?" and saving output at $file":""));
 		$factory->program_dir($self->{'blastbins'}) if $self->{'blastbins'};
@@ -127,21 +128,37 @@ sub run {
 		   }
 		   close XML;
 		}elsif($self->{'blastoutformat'} eq 'tab'){
-		   while(my $result = $self->{'report'}->next_result){
-		   	my $f  = $self->{'blastdir'}."/".$result->query_accession."__".basename($self->{'db'}).".blast.tab";
-			open TAB, ">", $f or LOGDIE "I can't create the report '$f': $!";
-			while(my $hit = $result->next_hit){
-				while(my $hsp = $hit->next_hsp){
-					print TAB $result->query_accession, "\t",
-						$hit->name, "\t", $hsp->percent_identity, "\t",
-						$hsp->length, "\t", $hsp->length-$hsp->matches, "\t",
-						$hsp->gaps, "\t", $hsp->start('query'), "\t", $hsp->end('query'), "\t",
-						$hsp->start('subject'), "\t", $hsp->end('subject'), "\t",
-						$hsp->evalue, "\t", $hsp->bits, "\n";
-				}
-			}
-			close TAB;
+		   open TAB, "<", $file or LOGDIE "I can't read '$file': $!";
+		   my $last_id = "\t"; # <- Impossible to be a field of split /\t/
+		   while(my $ln = <TAB>){
+		      next if $ln=~/^#/ or $ln=~/^\s*$/;
+		      my @rows = split /\t/, $ln;
+		      my $Hsp_q = shift @rows;
+		      if($last_id eq $Hsp_q){
+		         print TABOUT $ln;
+		      }else{
+		         my $f = $self->{'blastdir'}."/".$Hsp_q."__".basename($self->{'db'}).".blast.tab";
+		         open TABOUT, ">", $f or LOGDIE "I can't create the report '$f': $!";
+			 print TABOUT $ln;
+		      }
+		      $last_id = $Hsp_q;
 		   }
+		   #while(my $result = $self->{'report'}->next_result){
+		   #	my $f  = $self->{'blastdir'}."/".$result->query_accession."__".basename($self->{'db'}).".blast.tab";
+		#	last if -s $f; # <- Assume they are already there
+		#	open TAB, ">", $f or LOGDIE "I can't create the report '$f': $!";
+	#		while(my $hit = $result->next_hit){
+	#			while(my $hsp = $hit->next_hsp){
+#					print TAB $result->query_accession, "\t",
+#						$hit->name, "\t", $hsp->percent_identity, "\t",
+#						$hsp->length, "\t", $hsp->length-$hsp->matches, "\t",
+#						$hsp->gaps, "\t", $hsp->start('query'), "\t", $hsp->end('query'), "\t",
+#						$hsp->start('subject'), "\t", $hsp->end('subject'), "\t",
+#						$hsp->evalue, "\t", $hsp->bits, "\n";
+#				}
+#			}
+#			close TAB;
+#		   }
 		#while(my $result = $self->{'report'}->next_result){
 		#	my $f = $self->{'blastdir'}."/".$result->query_accession."__".basename($self->{'db'}).".blast";
 		#	my $sO = Bio::SearchIO->new(
