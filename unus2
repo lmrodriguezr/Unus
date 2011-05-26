@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+
+=head1 NAME
+
+unus 2.0, finding Shared and Single-copy genes.
+
+=head1 AUTHOR
+
+Luis M. Rodriguez-R < lmrodriguezr at gmail dot com, luisrodr at uniandes dot edu dot co >
+
+Laboratory of Mycology and Plant Pathology, LAMFU
+
+Universidad de Los Andes, Bogota, Colombia
+
+=head1 SYNOPSIS
+
+unus2 [options]
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<-?>
+
+This help message
+
+=back
+
+=cut
+
+BEGIN{
+	unshift @INC,
+		"/datos-biologia/luisrodr/unus",
+		"/datos-biologia/luisrodr/lib/perl/lib/perl5",
+		"/datos-biologia/luisrodr/lib/perl/lib/perl5/5.8.8",
+		"/datos-biologia/luisrodr/lib/perl/lib/perl5/site_perl/5.8.8",
+		"/datos-biologia/luisrodr/lib/perl/lib64/perl5",
+		"/datos-biologia/luisrodr/lib/perl/lib64/perl5/5.8.8",
+		"/datos-biologia/luisrodr/lib/perl/lib64/perl5/site_perl/5.8.8"
+	;
+}
+
+use strict;
+use Unus::Unus;
+
+my $unus = Unus::Unus->new();
+$unus->run;
+

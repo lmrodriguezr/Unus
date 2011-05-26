@@ -31,6 +31,7 @@ sub new {
 	LOGDIE "I can't create the BLAST directory '".$self->{'blastdir'}."': $!" if $self->{'blastdir'} && ! -d $self->{'blastdir'};
 	$self->{'program'} = $self->{'tblastx'} ? "tblastx" : "blastn";
 	$self->{'formatdb'} = ( $self->{'blastbins'} ? $self->{'blastbins'}."/" : "" ) . 'formatdb';
+	$ENV{'BLASTDIR'} = $self->{'blastbins'} if $self->{'blastbins'};
 	return $self;
 }
 sub run {
@@ -86,7 +87,6 @@ sub run {
 				-b=>$opt{'blastresults'}, -m=>($self->{'blastoutformat'} eq 'tab' ? 8 : 7));
 		$factory->o($file) if $file;
 		$self->{'unus'}->msg(6,"Running BLAST".($file?" and saving output at $file":""));
-		$factory->program_dir($self->{'blastbins'}) if $self->{'blastbins'};
 		$self->{'report'} = $factory->blastall($self->{'query'});
 	}
 	if($self->{'report'} && -s $self->{'query'} && $file && $self->{'blastdir'}){
