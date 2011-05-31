@@ -60,9 +60,11 @@ sub run {
 	if($self->{'blastdir'}){
 		$file = $self->{'blastdir'}."/".$opt{'tag'}.
 			##(not ref($self->{'query'}) and -s $self->{'query'} ? md5_hex($self->{'query'}) : $self->{'query'}->display_id).
-			(not ref($self->{'query'}) and -s $self->{'query'} ? "full-".basename($self->{'query'}) : $self->{'query'}->display_id).
+			((!ref($self->{'query'}) and -s $self->{'query'}) ?
+				"full-".basename($self->{'query'}) :
+				$self->{'query'}->display_id).
 			"__".basename($self->{'db'}).".blast";
-		$self->{'blast_dir'} = $file;
+		#$self->{'blast_dir'} = $file;
 		if(-s $file.".xml"){
 			$self->{'unus'}->msg(6,"Loading XML BLAST at $file.xml");
 			$self->{'report'} = Bio::SearchIO->new(
@@ -138,7 +140,8 @@ sub run {
 		         print TABOUT $ln;
 		      }else{
 		         my $f = $self->{'blastdir'}."/".$Hsp_q."__".basename($self->{'db'}).".blast.tab";
-		         open TABOUT, ">", $f or LOGDIE "I can't create the report '$f': $!";
+		         #last if -s $f; ### DEBUG !!!
+			 open TABOUT, ">", $f or LOGDIE "I can't create the report '$f': $!";
 			 print TABOUT $ln;
 		      }
 		      $last_id = $Hsp_q;
