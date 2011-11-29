@@ -69,7 +69,7 @@ And then (after re-loging or running `source ~/.bashrc`) run:
 As an alternative, you can build a small Perl script like this:
 
 ```perl
-    BEGIN { push @INC, '~/my.libs/unus2 }
+    BEGIN { push @INC, '~/my.libs/unus2' }
     use Unus::Unus;
     my $unus = Unus::Unus->new();
     $unus->run;
