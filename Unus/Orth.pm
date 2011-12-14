@@ -43,6 +43,7 @@ sub filter_orthref_file {
 					$ok = 0;
 					last PAIR;
 				}
+				$o or LOGDIE "I can't parse the line $. of $orthref_file, expecting three columns: $_";
 				$group[$genome] = $o;
 			} # PAIR
 			close ORTH;

@@ -73,6 +73,8 @@ sub build_orthref_file {
 					HITS:for my $hit (@hits){
 						my $val = $hit->bits/$refScore;
 						if($val >= $self->{'thresholds'}->[$genome]){
+							$hit->accession or $hit->accession($hit->name);
+							$hit->accession or LOGDIE "I can not find the accession nor the name, try description (".$hit->description.")";
 							open ORTH, ">>", $orthref_file or LOGDIE "I can't write on the '$orthref_file' file: $!";
 							print ORTH $seq->display_id."\t$genome\t".$hit->accession."\n";
 							close ORTH;
