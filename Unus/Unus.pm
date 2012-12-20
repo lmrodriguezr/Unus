@@ -49,6 +49,8 @@ sub configure {
 			'blastdir=s'	=> \$self->{'blastdir'},
 			'orthdir=s'	=> \$self->{'orthdir'},
 			'alndir=s'	=> \$self->{'alndir'},
+		# Taxa
+			'nameslen=i'	=> \$self->{'nameslen'},
 		# Groups construction
 			'orthcriterion=s'	=> \$self->{'orthcriterion'},
 			'orthloadpairs'		=> \$self->{'orthloadpairs'},
