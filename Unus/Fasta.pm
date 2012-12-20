@@ -10,6 +10,7 @@ sub new {
 		# Defaults
 		'unus'=>$$unus,
 		'genomesload'=>0,
+		'nameslen'=>4,
 	};
 	bless $self, $class;
 	# Overwrite defaults where defined
@@ -25,13 +26,13 @@ sub fasta_clean {
 	my (%coded_taxa,%ct);
 	for my $kori (0 .. $#in){
 		my $cod;
-		($cod, $in[$kori]) = $self->taxon($in[$kori]);
+		($cod, $in[$kori]) = $self->taxon($in[$kori], $self->{'nameslen'});
 		my $ori = $in[$kori];
 		if($ct{$cod}){
 			my $old_cod = $cod;
 			my $ori1 = $ct{$cod};
 			my $ori2 = $ori;
-			my ($cod1,$cod2) = $self->solve_taxa($old_cod, $ori1, $ori2, \%ct);
+			my ($cod1,$cod2) = $self->solve_taxa($old_cod, $ori1, $ori2, \%ct, $self->{'nameslen'});
 			$coded_taxa{$ori1} = $cod1;
 			$coded_taxa{$ori2} = $cod2;
 			$ct{$cod1} = $ori1;
@@ -80,23 +81,24 @@ sub taxon {
 	return ($out,$dirty) if length($out)<=$len;
 	#$out =~ s/[0-9]//g;
 	#return ($out,$dirty) if length($out)<=$len;
-	return (substr($out,0,4),$dirty);
+	return (substr($out,0,$len),$dirty);
 }
 sub solve_taxa {
-	my ($self, $old_cod, $ori1, $ori2, $ctr) = @_;
+	my ($self, $old_cod, $ori1, $ori2, $ctr, $len) = @_;
 	$self->{'unus'}->msg(5,"Solving conflict name for '$old_cod'");
-	my ($pcod1,$ori1) = $self->taxon($ori1,20);
-	my ($pcod2,$ori2) = $self->taxon($ori2,20);
+	$len = 4 unless defined $len;
+	my ($pcod1,$ori1) = $self->taxon($ori1,5*$len);
+	my ($pcod2,$ori2) = $self->taxon($ori2,5*$len);
 	$self->{'unus'}->msg(6,"Attempting to differentiate '$pcod1' and '$pcod2'");
 	if($pcod1 ne $pcod2){
 		my $pref_l = 0;
 		for my $l (1 .. 8){ $pref_l = $l if substr($pcod1,0,$l) eq substr($pcod2,0,$l) }
-		$pcod1 = substr($pcod1,0,3).substr($pcod1,$pref_l,1);
-		$pcod2 = substr($pcod2,0,3).substr($pcod2,$pref_l,1);
+		$pcod1 = substr($pcod1,0,$len-1).substr($pcod1,$pref_l,1);
+		$pcod2 = substr($pcod2,0,$len-1).substr($pcod2,$pref_l,1);
 		$self->{'unus'}->msg(6,"Found different codes: '$pcod1' and '$pcod2'");
 	}else{
-		$pcod1 = substr($old_cod,0,3)."0";
-		$pcod2 = substr($old_cod,0,3)."1";
+		$pcod1 = substr($old_cod,0,$len-1)."0";
+		$pcod2 = substr($old_cod,0,$len-1)."1";
 	}
 	$pcod1 = $self->check_taxon($pcod1,$ctr);
 	${$ctr}{$pcod1} = 1;
