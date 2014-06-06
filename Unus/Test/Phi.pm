@@ -70,7 +70,7 @@ sub test_recombination {
 		rmdir "$aln.phi" or LOGDIE "I can not delete the '$aln.phi' directory: $!";
 		open PHI, "<", "$aln.phi.log" or LOGDIE "I can not read the PHI report '$aln.phi.log': $!";
 		while(<PHI>){
-			if(m/^PHI \(Normal\): *([\d\.eE-]+)/){
+			if(m/^PHI \(Normal\): *([\d\.eE+-]+)/){
 				if($1 ne "--" && $1+0<=$self->{'phitestsignificance'}){
 					$self->{'unus'}->msg(5,"Discarded alignment for recombination suspect (p=".($1+0)."): ".basename($aln));
 				}else{
